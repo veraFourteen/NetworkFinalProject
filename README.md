@@ -47,21 +47,41 @@ Debug information are included as logs of POX and will be displayed while runnin
 
 ### Firewall
 
+#### requirement
+To run iperf on xterms, on the xterm for h2, start up a server:
+```sh iperf -s```
+Then on the xterm for h3 start up a client:
+```sh iperf -c 10.0.0.2```
+Your task is to prevent this from happening, and to block all flow entries with this particular port.
+
+#### solution
+
 ```sh
-class SDNFirewall (EventMixin):
+class Firewall(object):
     
-    def __init__ (self):
-        self.listenTo(core.openflow)
+    def __init__(self, connection):
+        self.connection = connection 
+        connection.addListeners(self)
         
-    def _handle_ConnectionUp (self, event):
-    
-        for rule in rules:
-            block = of.ofp_match()
-            block.dl_src = EthAddr(rule[0])
-            block.dl_dst = EthAddr(rule[1])
-            flow_mod = of.ofp_flow_mod()
-            flow_mod.match = block
-            event.connection.send(flow_mod)
+        self.port_table = {{'10.0.1.100': 1,
+                        '10.0.2.100': 3,
+                        '10.0.3.100': 2}
+        
+    def _handle_ConnectionUp(self, event):
+        packet = event.parsed
+        dst = packet.dst
+        msg = of.ofp_flow_mod()
+        msg.match = of.ofp_match.from_packet(packet, event.port)
+        msg.actions.append(of.ofp_action_output(port=self.por_table[str(dst)]))
+        msg.data = event.ofp 
+        self.connection.send(msg)
+        self.port_table[str(packet.src)] = event.port
+        
+def launch():
+    def myfirewall(event):
+        Firewall(event.connection)
+        core.openflow.addListenerByName("PacketIn", myfirewall)
+
 ```
 
 ## Contribution: 100% by Qingge Li
