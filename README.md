@@ -9,7 +9,7 @@ With OpenFlow-enabled coding, the network is effectively layerless: you can mix 
 ## Implementation Coding and Testing
 
 ### Router Exercise
-1. ```sh mytopo.py ```
+1. ``` mytopo.py ```
 store in   
 ```sh 
 home/mininet/mininet
@@ -20,12 +20,12 @@ sudo mn --custom mytopo.py --topo mytopo --mac  --controller remote
 ```
 
 
-2.```sh router.py ```
+2.``` router.py ```
 store in  
 ```sh 
 home/mininet/pox/ext
 ```
-go to ```sh  home/mininet/pox ``` and run with  
+go to ```  home/mininet/pox ``` and run with  
 ```sh 
 ./pox.py log.level --DEBUG router misc.full_payload
 ```
@@ -33,7 +33,7 @@ go to ```sh  home/mininet/pox ``` and run with
 
 ### Advanced Topology
 
-3. ```sh advancedTopo.py ```
+3. ``` advancedTopo.py ```
 store in 
 ```sh 
 home/mininet/mininet
@@ -49,9 +49,9 @@ Debug information are included as logs of POX and will be displayed while runnin
 
 #### requirement
 To run iperf on xterms, on the xterm for h2, start up a server:
-```sh iperf -s```
+``` iperf -s```
 Then on the xterm for h3 start up a client:
-```sh iperf -c 10.0.0.2```
+``` iperf -c 10.0.0.2```
 Your task is to prevent this from happening, and to block all flow entries with this particular port.
 
 #### solution
