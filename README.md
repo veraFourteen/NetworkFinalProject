@@ -47,7 +47,22 @@ Debug information are included as logs of POX and will be displayed while runnin
 
 ### Firewall
 
-No specific code is needed.  
+```sh
+class SDNFirewall (EventMixin):
+    
+    def __init__ (self):
+        self.listenTo(core.openflow)
+        
+    def _handle_ConnectionUp (self, event):
+    
+        for rule in rules:
+            block = of.ofp_match()
+            block.dl_src = EthAddr(rule[0])
+            block.dl_dst = EthAddr(rule[1])
+            flow_mod = of.ofp_flow_mod()
+            flow_mod.match = block
+            event.connection.send(flow_mod)
+```
 
 ## Contribution: 100% by Qingge Li
 
