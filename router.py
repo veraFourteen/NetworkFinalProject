@@ -25,8 +25,7 @@ class Router(object):
         # ip to port dictionary
         self.port_table = {'10.0.1.100': 1,
                         '10.0.2.100': 3,
-                        '10.0.3.100': 2,
-                        }
+                        '10.0.3.100': 2}
 
         # message queue format:  {destinationIP : [IP packet, sourceMAC]}
         self.msg_queue = {}
