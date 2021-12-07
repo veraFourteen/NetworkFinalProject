@@ -63,6 +63,7 @@ class Firewall(object):
         self.connection = connection 
         connection.addListeners(self)
         
+        self.blocked_host = '10.0.3.100'
         self.port_table = {{'10.0.1.100': 1,
                         '10.0.2.100': 3,
                         '10.0.3.100': 2}
