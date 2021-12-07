@@ -67,7 +67,7 @@ class Firewall(object):
                         '10.0.2.100': 3,
                         '10.0.3.100': 2}
         
-    def _handle_ConnectionUp(self, event):
+    def _handle_PacketIn(self, event):
         packet = event.parsed
         dst = packet.dst
         msg = of.ofp_flow_mod()
