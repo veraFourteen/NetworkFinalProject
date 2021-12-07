@@ -11,8 +11,9 @@ import pox
 log = core.getLogger()
 
 class Router(object):
+    ''' Router that acts like a static layer-3 forwarder/switch with masked IP prefix ranges
+    '''
     def __init__(self, connection):
-
         self.connection = connection 
         connection.addListeners(self)
 
@@ -37,7 +38,10 @@ class Router(object):
 
 
     def _handle_PacketIn(self, event):
-        # log.debug('Receving packets...')
+        ''' Required function for OpenFlow to look up.
+        Catagorize input packets received from the router to ARP and IP type.
+        '''
+        log.debug('Receving packets...')
         ether_pkt = event.parsed
 
         if ether_pkt.type == ethernet.ARP_TYPE:
@@ -47,10 +51,13 @@ class Router(object):
 
 
     def handle_arp_pkt(self, event, arp_pkt):
+        ''' For ARP REPLY received by the router: updata ARP table and send buffered IP packet if any
+        For ARP_REQUEST received by the router: send reply to source with MAC address I know.
+        '''
 
         if arp_pkt.opcode == arp.REPLY:
-            # log.debug('--ARP Reply received--')
-            # log.debug(arp_pkt)
+            log.debug('--ARP Reply received--')
+            log.debug(arp_pkt)
 
             # update ARP table
             if str(arp_pkt.protosrc) not in self.arp_table.keys():
@@ -73,8 +80,8 @@ class Router(object):
                 log.debug(ether)
 
         elif arp_pkt.opcode == arp.REQUEST:
-            ##log.debug('--ARP Request received--')
-            ##log.debug(arp_pkt)
+            log.debug('--ARP Request received--')
+            log.debug(arp_pkt)
             if str(arp_pkt.protodst) in self.arp_table.keys():
                 # construct ARP reply
                 arp_reply = arp()
@@ -92,50 +99,52 @@ class Router(object):
 
                 # send ARP reply
                 self.send_pkt(ether, event.ofp.in_port)
-                # log.debug('--ARP reply sent--')
-                # log.debug(ether)
+                log.debug('--ARP reply sent--')
+                log.debug(ether)
 
 
     def handle_ip_pkt(self, event, ether_pkt):
+        ''' For IP specific ICMP echo packets: construct ICMP reply and send back
+        For IP packets to be routed to destination: check ARP table for destination MAC address
+        If MAC address is known, route the packet through correct port to destination
+        If MAC not known, store packet is msg_queue for now and broadcast ARP Request for its destination adress
+        '''
         ip_pkt = ether_pkt.payload
         dstip = ip_pkt.dstip
 
-        # log.debug('--IP packet received--')
-        # log.debug(ip_pkt)
+        log.debug('--IP packet received--')
+        log.debug(ip_pkt)
 
         # route pkt to host from rtable
         for item in self.rtable:
             # if dstip is the router
             if str(dstip) == item[3] and ip_pkt.protocol == ipv4.ICMP_PROTOCOL and ip_pkt.payload.type == 8:
 
-                ##log.debug('--ICMP echo received--')
+                log.debug('--ICMP echo received--')
                 self.handle_icmp_pkt(event, ether_pkt, 0)
-                ##log.debug('--ICMP reply sent--')
+                log.debug('--ICMP reply sent--')
                 return
 
             # route the pkt to dest address
             elif dstip.inNetwork(item[0]):
-                #log.debug('ip in network, finding routes...')
+                log.debug('ip in network, finding routes...')
 
                 # check ARP table for MAC address
-                if dstip in self.arp_table:
+                if str(dstip) in self.arp_table.keys():
                     ether_pkt.src = EthAddr(self.arp_table[item[3]])
                     ether_pkt.dst = EthAddr(self.arp_table[str(dstip)])
-                    self.send_pkt(ether_pkt, item[4])
-                    #log.debug('--IP packet routed--')
+                    self.send_pkt(ether_pkt, self.port_table[str(dstip)]) # originally item[4]
+                    log.debug('--IP packet routed--')
                 # send out ARP request to ask for MAC address
                 else:
                     # update buffer with destination ip, and the packet iteself
                     self.msg_queue[str(dstip)] = [ip_pkt, str(ether_pkt.src)]
-                    # log.debug('IP packet(s) waiting on ARP reply...')
-                    # log.debug(self.msg_queue)
-
 
                     # construct arp request and broadcast
                     arp_req = arp()
                     arp_req.opcode = arp.REQUEST
                     arp_req.protosrc = IPAddr(item[3])
-                    arp_req.protodst = IPAddr(dstip)
+                    arp_req.protodst = IPAddr(str(dstip)) #originally just dstip
                     arp_req.hwsrc = EthAddr(self.arp_table[item[3]])
                     arp_req.hwdst = ETHER_BROADCAST
 
@@ -145,16 +154,18 @@ class Router(object):
                     ether.dst = ETHER_BROADCAST
                     ether.payload = arp_req
 
-                    self.send_pkt(ether, item[4])
-                    # log.debug('--MAC not known, ARP REQUEST sent--')
+                    self.send_pkt(ether, self.port_table[str(dstip)])# originally item[4], something with port
+                    log.debug('--MAC not known, ARP REQUEST sent--')
 
                 return
 
         # send ICMP dest unreachable as cannot find dstip in rtable
         self.handle_icmp_pkt(event, ether_pkt, 3)
-        #log.debug('--ICMP dest unreachable sent--')
+        log.debug('--ICMP dest unreachable sent--')
 
     def handle_icmp_pkt(self, event, ether_pkt, type):
+        ''' Send ICMP reply message for ICMP messages received, and send ICMP unreachable for wrong address
+        '''
         ip_pkt = ether_pkt.payload
         icmp_pkt = ip_pkt.payload
         
@@ -176,7 +187,7 @@ class Router(object):
         ether.payload = ip
 
         self.send_pkt(ether, event.ofp.in_port)
-        ##log.debug('--ICMP message sent--')
+        log.debug('--ICMP message sent--')
 
     def send_pkt(self, the_pkt, the_port):
         ''' Sends the_pkt through the_port after receing the pkt,
@@ -188,10 +199,8 @@ class Router(object):
         self.connection.send(msg)
 
 
-
 def launch():
     def myrouter(event):
         Router(event.connection)
     core.openflow.addListenerByName("PacketIn", myrouter)
     log.debug("-------starts-------")
-
